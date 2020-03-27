@@ -22,7 +22,7 @@ dependencies {
 
     // Testing dependencies
     testImplementation project(path: ':testapp', configuration: 'default')
-    testImplementation project(":robolectric")
+    testImplementation "org.robolectric:robolectric:4.3.1"
     testImplementation project(":integration_tests:agp:testsupport")
 
     testImplementation "junit:junit:4.12"
