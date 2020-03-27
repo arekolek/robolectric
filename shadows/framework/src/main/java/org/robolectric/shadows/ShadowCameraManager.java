@@ -8,7 +8,9 @@ import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
+import android.os.Build;
 import android.os.Build.VERSION_CODES;
+import android.os.Handler;
 import com.google.common.base.Preconditions;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -18,6 +20,8 @@ import java.util.concurrent.Executor;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.annotation.RealObject;
+import org.robolectric.util.ReflectionHelpers;
+import org.robolectric.util.ReflectionHelpers.ClassParameter;
 import org.robolectric.util.reflector.Accessor;
 import org.robolectric.util.reflector.ForType;
 
@@ -70,6 +74,55 @@ public class ShadowCameraManager {
             context.getApplicationInfo().targetSdkVersion);
 
     executor.execute(() -> callback.onOpened(deviceImpl));
+    return deviceImpl;
+  }
+
+  @Implementation(minSdk = VERSION_CODES.N_MR1, maxSdk = VERSION_CODES.O_MR1)
+  protected CameraDevice openCameraDeviceUserAsync(
+      String cameraId, CameraDevice.StateCallback callback, Handler handler, final int uid)
+      throws CameraAccessException {
+    CameraCharacteristics characteristics = getCameraCharacteristics(cameraId);
+    Context context = reflector(ReflectorCameraManager.class, realObject).getContext();
+
+    android.hardware.camera2.impl.CameraDeviceImpl deviceImpl;
+    if (Build.VERSION.SDK_INT == VERSION_CODES.N_MR1) {
+      deviceImpl =
+          ReflectionHelpers.callConstructor(
+              android.hardware.camera2.impl.CameraDeviceImpl.class,
+              ClassParameter.from(String.class, cameraId),
+              ClassParameter.from(CameraDevice.StateCallback.class, callback),
+              ClassParameter.from(Handler.class, handler),
+              ClassParameter.from(CameraCharacteristics.class, characteristics));
+    } else {
+      deviceImpl =
+          ReflectionHelpers.callConstructor(
+              android.hardware.camera2.impl.CameraDeviceImpl.class,
+              ClassParameter.from(String.class, cameraId),
+              ClassParameter.from(CameraDevice.StateCallback.class, callback),
+              ClassParameter.from(Handler.class, handler),
+              ClassParameter.from(CameraCharacteristics.class, characteristics),
+              ClassParameter.from(int.class, context.getApplicationInfo().targetSdkVersion));
+    }
+
+    handler.post(() -> callback.onOpened(deviceImpl));
+    return deviceImpl;
+  }
+
+  @Implementation(minSdk = VERSION_CODES.LOLLIPOP, maxSdk = VERSION_CODES.N)
+  protected CameraDevice openCameraDeviceUserAsync(
+      String cameraId, CameraDevice.StateCallback callback, Handler handler)
+      throws CameraAccessException {
+    CameraCharacteristics characteristics = getCameraCharacteristics(cameraId);
+
+    android.hardware.camera2.impl.CameraDeviceImpl deviceImpl =
+        ReflectionHelpers.callConstructor(
+            android.hardware.camera2.impl.CameraDeviceImpl.class,
+            ClassParameter.from(String.class, cameraId),
+            ClassParameter.from(CameraDevice.StateCallback.class, callback),
+            ClassParameter.from(Handler.class, handler),
+            ClassParameter.from(CameraCharacteristics.class, characteristics));
+
+    handler.post(() -> callback.onOpened(deviceImpl));
     return deviceImpl;
   }
 
